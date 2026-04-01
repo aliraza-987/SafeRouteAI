@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SafeRoute — Women's Safety Map</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════
+   CSS VARIABLES & RESET
+═══════════════════════════════════════════════ */
+:root {
+  --bg0: #08080e;
+  --bg1: #0f0f18;
+  --bg2: #14141f;
+  --bg3: #1a1a28;
+  --bg4: #202030;
+  --border: #2a2a3e;
+  --border2: #1e1e2e;
+  --t1: #f0f0fa;
+  --t2: #9090b0;
+  --t3: #5a5a78;
+  --red: #ff3357;
+  --red-dim: rgba(255,51,87,0.12);
+  --red-border: rgba(255,51,87,0.25);
+  --orange: #ff8c00;
+  --orange-dim: rgba(255,140,0,0.12);
+  --green: #2ecc71;
+  --green-dim: rgba(46,204,113,0.12);
+  --blue: #4f8ef7;
+  --purple: #9b6dff;
+  --purple-dim: rgba(155,109,255,0.12);
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --shadow: 0 20px 60px rgba(0,0,0,0.6);
+  --shadow-sm: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; width: 100%; overflow: hidden; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg0);
+  color: var(--t1);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button { cursor: pointer; border: none; background: none; font-family: inherit; color: inherit; }
+input, textarea, select { font-family: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ═══════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════ */
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════ */
+#sidebar {
+  width: 240px;
+  min-width: 240px;
+  height: 100%;
+  background: var(--bg1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  animation: slideInLeft 0.4s ease;
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-30px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+.sidebar-logo {
+  padding: 22px 18px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.logo-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255,51,87,0.2), rgba(255,51,87,0.05));
+  border: 1px solid var(--red-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.logo-text h1 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: 0.3px;
+}
+
+.logo-text p {
+  font-size: 11px;
+  color: var(--t3);
+  margin-top: 1px;
+}
+
+/* Report button */
+.btn-report {
+  margin: 14px 12px;
+  padding: 11px 16px;
+  background: linear-gradient(135deg, var(--red), #ff5577);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  display: flex; align-items: center; gap: 8px; justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 20px rgba(255,51,87,0.35);
+}
+.btn-report:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,51,87,0.45); }
+.btn-report:active { transform: translateY(0); }
+
+/* Nav */
+.sidebar-nav {
+  padding: 6px 8px;
+  flex: 1;
+}
+
+.nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--t3);
+  padding: 8px 10px 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t2);
+  transition: all 0.15s;
+  cursor: pointer;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { color: var(--t1); background: var(--bg3); }
+.nav-item.active {
+  color: var(--t1);
+  background: var(--bg2);
+  border-color: var(--border);
+}
+.nav-item .nav-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  flex-shrink: 0;
+  opacity: 0;
+}
+.nav-item.active .nav-dot { opacity: 1; }
+
+/* Stats box */
+.sidebar-stats {
+  margin: 0 12px 12px;
+  padding: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.stats-label { font-size: 11px; color: var(--t3); margin-bottom: 4px; }
+.stats-count {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--t1);
+  line-height: 1;
+}
+.stats-sub { font-size: 11px; color: var(--green); margin-top: 4px; }
+
+/* Footer */
+.sidebar-footer {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+}
+.sidebar-footer a, .sidebar-footer span {
+  font-size: 11px;
+  color: var(--t3);
+  display: flex; align-items: center; gap: 5px;
+  line-height: 1.8;
+  transition: color 0.15s;
+}
+.sidebar-footer a:hover { color: var(--t2); }
+
+/* ═══════════════════════════════════════════════
+   MAIN CONTENT
+═══════════════════════════════════════════════ */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ═══════════════════════════════════════════════
+   TOP BAR
+═══════════════════════════════════════════════ */
+#topbar {
+  position: absolute;
+  top: 16px; left: 16px; right: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+  pointer-events: none;
+  animation: fadeDown 0.4s ease 0.2s both;
+}
+
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.topbar-glass {
+  background: rgba(15,15,24,0.88);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-lg);
+  pointer-events: all;
+  box-shadow: var(--shadow-sm);
+}
+
+#search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 44px;
+}
+
+#search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: var(--t1);
+}
+#search-input::placeholder { color: var(--t3); }
+
+.search-icon { color: var(--t3); font-size: 14px; flex-shrink: 0; }
+
+.search-hint {
+  font-size: 11px;
+  color: var(--t3);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg3);
+  white-space: nowrap;
+}
+
+/* City toggle */
+#city-toggle {
+  display: flex;
+  padding: 5px;
+  gap: 3px;
+}
+
+.city-btn {
+  padding: 6px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t3);
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.city-btn.active {
+  background: var(--red-dim);
+  border-color: var(--red-border);
+  color: var(--red);
+}
+.city-btn:hover:not(.active) { color: var(--t2); background: var(--bg3); }
+
+/* ═══════════════════════════════════════════════
+   MAP
+═══════════════════════════════════════════════ */
+#map-container {
+  flex: 1;
+  position: relative;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  background: #0a0a14;
+}
+
+/* Leaflet overrides */
+.leaflet-tile-pane { filter: brightness(0.5) saturate(0.25) hue-rotate(210deg); }
+.leaflet-control-zoom {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm) !important;
+}
+.leaflet-control-zoom a {
+  background: var(--bg2) !important;
+  color: var(--t2) !important;
+  border-color: var(--border) !important;
+  width: 34px !important; height: 34px !important;
+  line-height: 34px !important;
+  font-size: 16px !important;
+}
+.leaflet-control-zoom a:hover { background: var(--bg3) !important; color: var(--t1) !important; }
+.leaflet-control-attribution {
+  background: rgba(8,8,14,0.85) !important;
+  color: var(--t3) !important;
+  font-size: 9px !important;
+  border-radius: var(--radius-sm) !important;
+}
+.leaflet-popup-content-wrapper {
+  background: var(--bg2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow) !important;
+  padding: 0 !important;
+  color: var(--t1) !important;
+}
+.leaflet-popup-content { margin: 0 !important; }
+.leaflet-popup-tip-container { display: none; }
+.leaflet-popup-close-button { color: var(--t3) !important; font-size: 16px !important; top: 10px !important; right: 10px !important; }
+
+/* Hint tooltip */
+#map-hint {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  background: rgba(15,15,24,0.9);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  border-radius: 50px;
+  padding: 9px 18px;
+  font-size: 12px;
+  color: var(--t2);
+  pointer-events: none;
+  animation: pulse 3s ease infinite;
+  white-space: nowrap;
+}
+@keyframes pulse {
+  0%,100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════
+   RIGHT PANEL (Incident Feed)
+═══════════════════════════════════════════════ */
+#right-panel {
+  width: 280px;
+  min-width: 280px;
+  height: 100%;
+  background: var(--bg1);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.4s ease 0.1s both;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(30px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.panel-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.panel-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 50px;
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid var(--red-border);
+}
+
+.feed-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.feed-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  padding: 20px;
+  text-align: center;
+  color: var(--t3);
+  font-size: 12px;
+}
+
+.feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border2);
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 100%;
+  text-align: left;
+}
+.feed-item:hover { background: var(--bg2); }
+
+.feed-icon {
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.feed-content { flex: 1; min-width: 0; }
+
+.feed-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+  text-transform: capitalize;
+  margin-bottom: 2px;
+}
+
+.feed-area {
+  font-size: 11px;
+  color: var(--t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed-desc {
+  font-size: 11px;
+  color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.feed-time {
+  font-size: 10px;
+  color: var(--t3);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════
+   SAFETY PANEL (Floating overlay on map)
+═══════════════════════════════════════════════ */
+#safety-panel {
+  position: absolute;
+  top: 76px;
+  right: 16px;
+  width: 300px;
+  z-index: 25;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  display: none;
+  overflow: hidden;
+  animation: slideInRight 0.3s ease;
+}
+#safety-panel.visible { display: block; }
+
+.sp-header {
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sp-area { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--t1); }
+.sp-meta { font-size: 11px; color: var(--t3); margin-top: 2px; }
+
+.sp-close {
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--t3);
+  transition: all 0.15s;
+  flex-shrink: 0;
+  font-size: 14px;
+  background: var(--bg3);
+  margin-left: 8px;
+}
+.sp-close:hover { color: var(--t1); background: var(--bg4); }
+
+.sp-body { padding: 16px 18px; }
+
+/* Score ring */
+.sp-score-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.score-ring-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+.score-ring-wrap svg { transform: rotate(-90deg); }
+
+.score-ring-bg { fill: none; stroke: var(--bg4); stroke-width: 6; }
+.score-ring-fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+.score-num {
+  position: absolute;
+  inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.sp-badge-label { font-size: 11px; color: var(--t3); margin-bottom: 4px; }
+
+/* Summary */
+.sp-summary {
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.6;
+  padding: 12px 14px;
+  background: var(--bg3);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  border: 1px solid var(--border2);
+}
+
+/* Mini stats */
+.sp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sp-stat {
+  padding: 10px 12px;
+  background: var(--bg3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border2);
+}
+.sp-stat-label { font-size: 10px; color: var(--t3); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+.sp-stat-value { font-size: 12px; font-weight: 600; color: var(--t1); text-transform: capitalize; }
+
+/* Tip */
+.sp-tip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--purple-dim);
+  border: 1px solid rgba(155,109,255,0.2);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+.sp-tip-icon { font-size: 13px; flex-shrink: 0; }
+
+/* Loading state */
+.sp-loading { padding: 20px 18px; }
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ═══════════════════════════════════════════════
+   REPORT MODAL
+═══════════════════════════════════════════════ */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 0 0;
+}
+#modal-overlay.open {
+  display: flex;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+#modal {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow);
+  animation: slideUp 0.35s cubic-bezier(0.34,1.2,0.64,1);
+  overflow: hidden;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-handle {
+  width: 36px; height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+
+.modal-header {
+  padding: 14px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: var(--red-dim);
+  border: 1px solid var(--red-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+
+.modal-title { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.modal-subtitle { font-size: 11px; color: var(--t3); }
+
+.modal-close {
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--t3);
+  font-size: 16px;
+  transition: all 0.15s;
+}
+.modal-close:hover { color: var(--t1); background: var(--bg4); }
+
+/* Step progress */
+.modal-progress {
+  display: flex;
+  gap: 6px;
+  padding: 12px 20px 0;
+  flex-shrink: 0;
+}
+.progress-bar {
+  height: 3px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background 0.3s;
+}
+.progress-bar.done { background: var(--red); }
+
+.modal-body { padding: 16px 20px 20px; overflow-y: auto; }
+
+/* Form elements */
+.form-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--t3);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.form-group { margin-bottom: 16px; }
+
+.pill-grid {
+  display: grid;
+  gap: 7px;
+}
+.pill-grid-2 { grid-template-columns: 1fr 1fr; }
+.pill-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.pill {
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t2);
+  transition: all 0.15s;
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.pill:hover { border-color: var(--t3); color: var(--t1); }
+.pill.selected { background: var(--red-dim); border-color: var(--red-border); color: var(--red); }
+.pill.selected-orange { background: var(--orange-dim); border-color: rgba(255,140,0,0.3); color: var(--orange); }
+.pill .pill-emoji { font-size: 16px; }
+
+.form-input, .form-textarea {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  font-size: 13px;
+  color: var(--t1);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .form-textarea:focus { border-color: var(--red); }
+.form-input::placeholder, .form-textarea::placeholder { color: var(--t3); }
+.form-textarea { resize: none; }
+
+.pin-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--orange-dim);
+  border: 1px solid rgba(255,140,0,0.25);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--orange);
+  margin-bottom: 12px;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--red), #ff5577);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.15s;
+  box-shadow: 0 4px 20px rgba(255,51,87,0.3);
+}
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,51,87,0.4); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  flex: 1;
+  padding: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--t2);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.btn-secondary:hover { color: var(--t1); border-color: var(--t3); }
+
+.modal-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 20px;
+  font-size: 13px;
+  color: var(--t1);
+  box-shadow: var(--shadow);
+  z-index: 200;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34,1.2,0.64,1);
+  white-space: nowrap;
+  pointer-events: none;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ═══════════════════════════════════════════════
+   POPUP
+═══════════════════════════════════════════════ */
+.map-popup {
+  padding: 14px 16px;
+  min-width: 180px;
+}
+.popup-type {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+.popup-area { font-size: 12px; color: var(--t3); margin-bottom: 6px; }
+.popup-desc { font-size: 11px; color: var(--t2); margin-bottom: 8px; line-height: 1.5; }
+.popup-time {
+  font-size: 10px;
+  color: var(--t3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.popup-assess-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 7px 12px;
+  background: var(--red-dim);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.popup-assess-btn:hover { background: rgba(255,51,87,0.2); }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  #sidebar { width: 200px; min-width: 200px; }
+  #right-panel { width: 240px; min-width: 240px; }
+}
+@media (max-width: 680px) {
+  #sidebar { display: none; }
+  #right-panel { display: none; }
+}
+</style>
+</head>
+
+<body>
+<div id="app">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────── -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">
+        <h1>SafeRoute</h1>
+        <p>Mumbai &amp; Delhi</p>
+      </div>
+    </div>
+
+    <button class="btn-report" onclick="openModal()">
+      ⚠️ Report Incident
+    </button>
+
+    <nav class="sidebar-nav">
+      <p class="nav-label">Navigation</p>
+      <button class="nav-item active" onclick="switchView('map', this)">
+        <span class="nav-dot"></span>
+        🗺️ Safety Map
+      </button>
+      <button class="nav-item" onclick="switchView('stats', this)">
+        <span class="nav-dot"></span>
+        📊 Area Stats
+      </button>
+    </nav>
+
+    <div class="sidebar-stats">
+      <p class="stats-label">Community Reports</p>
+      <div class="stats-count" id="sidebar-count">—</div>
+      <p class="stats-sub">🟢 Live &amp; growing</p>
+    </div>
+
+    <div class="sidebar-footer">
+      <a href="https://github.com" target="_blank">⬡ Open Source on GitHub</a>
+      <span>❤️ Built for women's safety</span>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ───────────────────────────────────────────── -->
+  <div id="main">
+
+    <!-- Top bar -->
+    <div id="topbar">
+      <div class="topbar-glass" id="search-box">
+        <span class="search-icon">🔍</span>
+        <input id="search-input" type="text" placeholder="Search area (e.g. Bandra, Connaught Place)..." />
+        <span class="search-hint">📍 Click map to place pin</span>
+      </div>
+      <div class="topbar-glass" id="city-toggle">
+        <button class="city-btn active" data-city="Mumbai" onclick="setCity('Mumbai', this)">Mumbai</button>
+        <button class="city-btn" data-city="Delhi" onclick="setCity('Delhi', this)">Delhi</button>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div id="map-container">
+      <div id="map"></div>
+      <div id="map-hint">🗺️ Click anywhere to check area safety</div>
+
+      <!-- Safety Assessment Panel (floats over map) -->
+      <div id="safety-panel">
+        <div class="sp-header">
+          <div>
+            <div class="sp-area" id="sp-area-name">—</div>
+            <div class="sp-meta" id="sp-meta">—</div>
+          </div>
+          <button class="sp-close" onclick="closeSafetyPanel()">✕</button>
+        </div>
+        <div class="sp-body" id="sp-body">
+          <!-- filled by JS -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT PANEL ─────────────────────────────────────── -->
+  <aside id="right-panel">
+    <div class="panel-header">
+      <span class="panel-title">Recent Reports</span>
+      <span class="panel-badge" id="feed-count">0</span>
+    </div>
+    <div class="feed-list" id="feed-list">
+      <div class="feed-empty">No reports yet.<br/>Be first to report an incident.</div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- ── REPORT MODAL ────────────────────────────────────────── -->
+<div id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title-row">
+        <div class="modal-icon">⚠️</div>
+        <div>
+          <div class="modal-title">Report Incident</div>
+          <div class="modal-subtitle" id="modal-pin-info">Click map to place pin first</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-progress">
+      <div class="progress-bar done" id="prog1"></div>
+      <div class="progress-bar" id="prog2"></div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="modal-body" id="step1">
+      <div class="form-group">
+        <label class="form-label">City</label>
+        <div class="pill-grid pill-grid-2">
+          <button class="pill selected" onclick="selectPill(this,'city','Mumbai')">
+            🏙️ Mumbai
+          </button>
+          <button class="pill" onclick="selectPill(this,'city','Delhi')">
+            🕌 Delhi
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Area / Locality</label>
+        <input class="form-input" id="area-input" type="text" placeholder="e.g. Bandra West, Karol Bagh..." />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Incident Type</label>
+        <div class="pill-grid pill-grid-2">
+          <button class="pill" onclick="selectPill(this,'type','harassment')">😰 Harassment</button>
+          <button class="pill" onclick="selectPill(this,'type','poor_lighting')">🔦 Poor Lighting</button>
+          <button class="pill" onclick="selectPill(this,'type','unsafe_area')">⚠️ Unsafe Area</button>
+          <button class="pill" onclick="selectPill(this,'type','stalking')">👁️ Stalking</button>
+          <button class="pill" onclick="selectPill(this,'type','theft')">💼 Theft</button>
+          <button class="pill" onclick="selectPill(this,'type','other')">📌 Other</button>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="step1-next" onclick="goStep2()">Continue →</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="modal-body" id="step2" style="display:none">
+      <div class="form-group">
+        <label class="form-label">When did this happen?</label>
+        <div class="pill-grid pill-grid-3">
+          <button class="pill" onclick="selectTimePill(this,'morning')">
+            <span class="pill-emoji">🌅</span> Morning
+          </button>
+          <button class="pill" onclick="selectTimePill(this,'afternoon')">
+            <span class="pill-emoji">☀️</span> Afternoon
+          </button>
+          <button class="pill" onclick="selectTimePill(this,'evening')">
+            <span class="pill-emoji">🌆</span> Evening
+          </button>
+          <button class="pill" onclick="selectTimePill(this,'night')">
+            <span class="pill-emoji">🌙</span> Night
+          </button>
+          <button class="pill" onclick="selectTimePill(this,'late_night')">
+            <span class="pill-emoji">🌑</span> Late Night
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description (optional)</label>
+        <textarea class="form-textarea" id="desc-input" rows="3"
+          placeholder="Briefly describe what happened or why this area feels unsafe..."></textarea>
+      </div>
+
+      <div id="pin-warning" class="pin-warning" style="display:none">
+        📍 Please click on the map first to place the incident pin
+      </div>
+
+      <div class="modal-btn-row">
+        <button class="btn-secondary" onclick="goStep1()">← Back</button>
+        <button class="btn-primary" id="submit-btn" onclick="submitReport()" style="flex:2">
+          Submit Report
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const state = {
+  city: 'Mumbai',
+  incidents: [],
+  selectedPin: null,
+  pinMarker: null,
+  form: {
+    city: 'Mumbai',
+    type: null,
+    time_of_day: null,
+  },
+  map: null,
+  markers: [],
+}
+
+const CITY_CENTERS = {
+  Mumbai: [19.0760, 72.8777],
+  Delhi:  [28.6139, 77.2090],
+}
+
+const TYPE_CONFIG = {
+  harassment:    { emoji: '😰', color: '#ff3357', bg: 'rgba(255,51,87,0.15)'  },
+  poor_lighting: { emoji: '🔦', color: '#ff8c00', bg: 'rgba(255,140,0,0.15)' },
+  unsafe_area:   { emoji: '⚠️', color: '#ff6b35', bg: 'rgba(255,107,53,0.15)'},
+  stalking:      { emoji: '👁️', color: '#ff3357', bg: 'rgba(255,51,87,0.15)'  },
+  theft:         { emoji: '💼', color: '#ff8c00', bg: 'rgba(255,140,0,0.15)' },
+  other:         { emoji: '📌', color: '#9090b0', bg: 'rgba(144,144,176,0.15)'},
+}
+
+const TIME_LABELS = {
+  morning: 'Morning', afternoon: 'Afternoon',
+  evening: 'Evening', night: 'Night', late_night: 'Late Night'
+}
+
+// ═══════════════════════════════════════════════
+// MAP INIT
+// ═══════════════════════════════════════════════
+function initMap() {
+  state.map = L.map('map', {
+    center: CITY_CENTERS[state.city],
+    zoom: 13,
+    zoomControl: false,
+  })
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19,
+  }).addTo(state.map)
+
+  L.control.zoom({ position: 'bottomright' }).addTo(state.map)
+
+  state.map.on('click', (e) => {
+    placePin(e.latlng.lat, e.latlng.lng)
+    fetchAssessment(e.latlng.lat, e.latlng.lng, 'Selected Area')
+  })
+}
+
+function placePin(lat, lng) {
+  state.selectedPin = { lat, lng }
+
+  if (state.pinMarker) state.pinMarker.remove()
+
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:18px;height:18px;border-radius:50%;
+      background:#4f8ef7;
+      border:3px solid rgba(255,255,255,0.9);
+      box-shadow:0 0 0 5px rgba(79,142,247,0.25),0 4px 16px rgba(79,142,247,0.5);
+    "></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  })
+
+  state.pinMarker = L.marker([lat, lng], { icon }).addTo(state.map)
+
+  // Update modal pin info
+  document.getElementById('modal-pin-info').textContent =
+    `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+  document.getElementById('map-hint').style.display = 'none'
+}
+
+// ═══════════════════════════════════════════════
+// INCIDENTS
+// ═══════════════════════════════════════════════
+function createIncidentIcon(type) {
+  const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.other
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:32px;height:32px;
+      border-radius:50% 50% 50% 0;
+      transform:rotate(-45deg);
+      background:${cfg.color};
+      border:2px solid rgba(255,255,255,0.25);
+      box-shadow:0 4px 18px ${cfg.color}70;
+      display:flex;align-items:center;justify-content:center;
+    "><div style="transform:rotate(45deg);font-size:13px;">${cfg.emoji}</div></div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -34],
+  })
+}
+
+function renderIncidents() {
+  // Clear old markers
+  state.markers.forEach(m => m.remove())
+  state.markers = []
+
+  const visible = state.incidents.filter(i => i.city === state.city)
+
+  visible.forEach(incident => {
+    const marker = L.marker([incident.lat, incident.lng], {
+      icon: createIncidentIcon(incident.type),
+    })
+
+    const cfg = TYPE_CONFIG[incident.type] || TYPE_CONFIG.other
+    const popup = L.popup({ closeButton: true, maxWidth: 220 }).setContent(`
+      <div class="map-popup">
+        <div class="popup-type" style="color:${cfg.color}">
+          ${cfg.emoji} ${incident.type.replace('_',' ')}
+        </div>
+        <div class="popup-area">📍 ${incident.area_name}, ${incident.city}</div>
+        ${incident.description
+          ? `<div class="popup-desc">${incident.description}</div>`
+          : ''}
+        <div class="popup-time">🕐 ${TIME_LABELS[incident.time_of_day] || incident.time_of_day}</div>
+        <button class="popup-assess-btn"
+          onclick="fetchAssessment(${incident.lat},${incident.lng},'${incident.area_name}');state.map.closePopup()">
+          🔍 Check Area Safety
+        </button>
+      </div>
+    `)
+
+    marker.bindPopup(popup)
+    marker.addTo(state.map)
+    state.markers.push(marker)
+  })
+
+  renderFeed(visible)
+  document.getElementById('sidebar-count').textContent = state.incidents.length
+  document.getElementById('feed-count').textContent = visible.length
+}
+
+function renderFeed(incidents) {
+  const list = document.getElementById('feed-list')
+  if (!incidents.length) {
+    list.innerHTML = '<div class="feed-empty">No reports yet for this city.<br/>Be the first to report an incident.</div>'
+    return
+  }
+
+  list.innerHTML = [...incidents].reverse().map(i => {
+    const cfg = TYPE_CONFIG[i.type] || TYPE_CONFIG.other
+    const timeAgo = getTimeAgo(i.created_at)
+    return `
+      <button class="feed-item" onclick="onFeedClick(${i.lat},${i.lng},'${i.area_name}')">
+        <div class="feed-icon" style="background:${cfg.bg}">
+          ${cfg.emoji}
+        </div>
+        <div class="feed-content">
+          <div class="feed-type">${i.type.replace(/_/g,' ')}</div>
+          <div class="feed-area">📍 ${i.area_name}, ${i.city}</div>
+          ${i.description ? `<div class="feed-desc">${i.description}</div>` : ''}
+        </div>
+        <div class="feed-time">${timeAgo}</div>
+      </button>
+    `
+  }).join('')
+}
+
+function onFeedClick(lat, lng, area) {
+  state.map.flyTo([lat, lng], 15, { duration: 1 })
+  fetchAssessment(lat, lng, area)
+}
+
+// ═══════════════════════════════════════════════
+// SAFETY ASSESSMENT
+// ═══════════════════════════════════════════════
+function showSafetyLoading(areaName) {
+  const panel = document.getElementById('safety-panel')
+  panel.classList.add('visible')
+  document.getElementById('sp-area-name').textContent = areaName
+  document.getElementById('sp-meta').textContent = 'Analysing community reports...'
+  document.getElementById('sp-body').innerHTML = `
+    <div class="sp-loading">
+      <div class="skeleton" style="height:18px;width:60%;margin-bottom:16px"></div>
+      <div class="skeleton" style="height:12px;width:100%"></div>
+      <div class="skeleton" style="height:12px;width:85%"></div>
+      <div class="skeleton" style="height:12px;width:70%;margin-bottom:16px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="skeleton" style="height:52px;border-radius:12px"></div>
+        <div class="skeleton" style="height:52px;border-radius:12px"></div>
+      </div>
+    </div>
+  `
+}
+
+async function fetchAssessment(lat, lng, areaName = 'Selected Area') {
+  showSafetyLoading(areaName)
+
+  try {
+    const res = await fetch(`/api/assess?lat=${lat}&lng=${lng}&city=${state.city}&area=${encodeURIComponent(areaName)}`)
+    const data = await res.json()
+    renderSafetyPanel(data)
+  } catch {
+    // Fallback: compute locally
+    const nearby = state.incidents.filter(i =>
+      i.city === state.city &&
+      Math.abs(i.lat - lat) < 0.03 &&
+      Math.abs(i.lng - lng) < 0.03
+    )
+    const score = Math.max(15, 90 - nearby.length * 12)
+    const level = score >= 70 ? 'safe' : score >= 40 ? 'caution' : 'danger'
+    renderSafetyPanel({
+      area_name: areaName,
+      safety_level: level,
+      safety_score: score,
+      summary: nearby.length
+        ? `${nearby.length} incident(s) reported nearby. Exercise caution, especially during late hours.`
+        : 'No incidents reported here yet. Stay alert and trust your instincts.',
+      incident_count: nearby.length,
+      most_common_type: nearby[0]?.type?.replace('_',' ') || 'none',
+      safest_time: 'Morning',
+      tip: 'Share your live location with a trusted contact before travelling alone at night.',
+    })
+  }
+}
+
+function renderSafetyPanel(data) {
+  const LEVEL = {
+    safe:    { color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.3)',  label: 'Generally Safe',  emoji: '🟢' },
+    caution: { color: '#ff8c00', bg: 'rgba(255,140,0,0.12)',   border: 'rgba(255,140,0,0.3)',   label: 'Use Caution',     emoji: '🟡' },
+    danger:  { color: '#ff3357', bg: 'rgba(255,51,87,0.12)',   border: 'rgba(255,51,87,0.3)',   label: 'High Risk',       emoji: '🔴' },
+    unknown: { color: '#9090b0', bg: 'rgba(144,144,176,0.12)', border: 'rgba(144,144,176,0.3)', label: 'No Data Yet',     emoji: '⚪' },
+  }
+
+  const lv = LEVEL[data.safety_level] || LEVEL.unknown
+  const score = data.safety_score || 50
+  const circ = 2 * Math.PI * 28
+  const dash = (score / 100) * circ
+
+  document.getElementById('sp-area-name').textContent = data.area_name
+  document.getElementById('sp-meta').textContent =
+    `Based on ${data.incident_count} community report${data.incident_count !== 1 ? 's' : ''}`
+
+  document.getElementById('sp-body').innerHTML = `
+    <div class="sp-score-row">
+      <div class="score-ring-wrap">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle class="score-ring-bg" cx="36" cy="36" r="28"/>
+          <circle class="score-ring-fill" cx="36" cy="36" r="28"
+            stroke="${lv.color}"
+            stroke-dasharray="${circ}"
+            stroke-dashoffset="${circ - dash}"
+            style="filter:drop-shadow(0 0 5px ${lv.color}60)"
+          />
+        </svg>
+        <div class="score-num" style="color:${lv.color}">${score}</div>
+      </div>
+      <div>
+        <div class="sp-badge-label">Safety Level</div>
+        <div class="sp-badge" style="background:${lv.bg};border:1px solid ${lv.border};color:${lv.color}">
+          ${lv.emoji} ${lv.label}
+        </div>
+        <div style="font-size:10px;color:var(--t3)">Score out of 100</div>
+      </div>
+    </div>
+
+    <div class="sp-summary">${data.summary}</div>
+
+    <div class="sp-grid">
+      <div class="sp-stat">
+        <div class="sp-stat-label">📊 Common Incident</div>
+        <div class="sp-stat-value">${(data.most_common_type || 'none').replace(/_/g,' ')}</div>
+      </div>
+      <div class="sp-stat">
+        <div class="sp-stat-label">🕐 Safest Time</div>
+        <div class="sp-stat-value" style="color:var(--green)">${data.safest_time}</div>
+      </div>
+    </div>
+
+    <div class="sp-tip">
+      <span class="sp-tip-icon">💡</span>
+      <span>${data.tip}</span>
+    </div>
+  `
+
+  document.getElementById('safety-panel').classList.add('visible')
+}
+
+function closeSafetyPanel() {
+  document.getElementById('safety-panel').classList.remove('visible')
+}
+
+// ═══════════════════════════════════════════════
+// CITY TOGGLE
+// ═══════════════════════════════════════════════
+function setCity(city, btn) {
+  state.city = city
+  document.querySelectorAll('.city-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  state.map.flyTo(CITY_CENTERS[city], 13, { duration: 1.5 })
+  closeSafetyPanel()
+  renderIncidents()
+}
+
+// ═══════════════════════════════════════════════
+// VIEW SWITCHER
+// ═══════════════════════════════════════════════
+function switchView(view, btn) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+}
+
+// ═══════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════
+function openModal() {
+  document.getElementById('modal-overlay').classList.add('open')
+  goStep1()
+  if (state.selectedPin) {
+    document.getElementById('modal-pin-info').textContent =
+      `${state.selectedPin.lat.toFixed(4)}, ${state.selectedPin.lng.toFixed(4)}`
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open')
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal()
+}
+
+function goStep1() {
+  document.getElementById('step1').style.display = 'block'
+  document.getElementById('step2').style.display = 'none'
+  document.getElementById('prog1').classList.add('done')
+  document.getElementById('prog2').classList.remove('done')
+}
+
+function goStep2() {
+  const area = document.getElementById('area-input').value.trim()
+  if (!area) { showToast('⚠️ Please enter an area name'); return }
+  if (!state.form.type) { showToast('⚠️ Please select an incident type'); return }
+  document.getElementById('step1').style.display = 'none'
+  document.getElementById('step2').style.display = 'block'
+  document.getElementById('prog2').classList.add('done')
+  const pinWarn = document.getElementById('pin-warning')
+  pinWarn.style.display = state.selectedPin ? 'none' : 'flex'
+}
+
+function selectPill(btn, key, value) {
+  const parent = btn.parentElement
+  parent.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'))
+  btn.classList.add('selected')
+  state.form[key] = value
+}
+
+function selectTimePill(btn, value) {
+  const parent = btn.parentElement
+  parent.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'))
+  btn.classList.add('selected')
+  state.form.time_of_day = value
+  document.getElementById('pin-warning').style.display =
+    state.selectedPin ? 'none' : 'flex'
+}
+
+async function submitReport() {
+  if (!state.selectedPin) {
+    showToast('📍 Click the map first to place the pin')
+    return
+  }
+  if (!state.form.time_of_day) {
+    showToast('⚠️ Please select time of day')
+    return
+  }
+
+  const btn = document.getElementById('submit-btn')
+  btn.textContent = 'Submitting...'
+  btn.disabled = true
+
+  const payload = {
+    lat:         state.selectedPin.lat,
+    lng:         state.selectedPin.lng,
+    type:        state.form.type || 'other',
+    description: document.getElementById('desc-input').value.trim(),
+    time_of_day: state.form.time_of_day,
+    area_name:   document.getElementById('area-input').value.trim(),
+    city:        state.form.city,
+  }
+
+  try {
+    const res = await fetch('/api/incidents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const newIncident = await res.json()
+    state.incidents.unshift(newIncident)
+  } catch {
+    // Offline fallback
+    state.incidents.unshift({ id: Date.now(), ...payload, created_at: new Date().toISOString(), upvotes: 0 })
+  }
+
+  renderIncidents()
+  closeModal()
+  showToast('✅ Report submitted! Thank you for keeping the community safe 💪')
+
+  // Reset
+  btn.textContent = 'Submit Report'
+  btn.disabled = false
+  document.getElementById('area-input').value = ''
+  document.getElementById('desc-input').value = ''
+  state.selectedPin = null
+  if (state.pinMarker) { state.pinMarker.remove(); state.pinMarker = null }
+  state.form = { city: state.city, type: null, time_of_day: null }
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 3200)
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function getTimeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (diff < 60)   return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`
+  if (diff < 86400)return `${Math.floor(diff/3600)}h ago`
+  return `${Math.floor(diff/86400)}d ago`
+}
+
+// ═══════════════════════════════════════════════
+// API CALLS
+// ═══════════════════════════════════════════════
+async function loadIncidents() {
+  try {
+    const res = await fetch('/api/incidents')
+    state.incidents = await res.json()
+  } catch {
+    // Demo data if backend is not up
+    state.incidents = [
+      { id:1, lat:19.0596, lng:72.8295, type:'poor_lighting',  description:'Dark lane at night', time_of_day:'night', area_name:'Bandra West', city:'Mumbai', created_at:new Date(Date.now()-3600000).toISOString(), upvotes:3 },
+      { id:2, lat:19.0760, lng:72.8777, type:'harassment',     description:'Verbal harassment near bus stop', time_of_day:'evening', area_name:'Dadar', city:'Mumbai', created_at:new Date(Date.now()-7200000).toISOString(), upvotes:7 },
+      { id:3, lat:19.1136, lng:72.8697, type:'unsafe_area',    description:'Deserted road at midnight', time_of_day:'late_night', area_name:'Andheri East', city:'Mumbai', created_at:new Date(Date.now()-18000000).toISOString(), upvotes:2 },
+      { id:4, lat:28.6315, lng:77.2167, type:'theft',          description:'Phone snatched near metro', time_of_day:'evening', area_name:'Connaught Place', city:'Delhi', created_at:new Date(Date.now()-9000000).toISOString(), upvotes:5 },
+      { id:5, lat:28.5562, lng:77.1000, type:'poor_lighting',  description:'Street lights not working', time_of_day:'night', area_name:'Dwarka', city:'Delhi', created_at:new Date(Date.now()-21600000).toISOString(), upvotes:4 },
+    ]
+  }
+  renderIncidents()
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  initMap()
+  loadIncidents()
+})
+</script>
+</body>
+</html>
