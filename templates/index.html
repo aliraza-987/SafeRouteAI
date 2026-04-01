@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SafeRoute — Women's Safety Map</title>
+<title>SafeRouteAI — Women's Safety Map</title>
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -910,17 +910,50 @@ a { color: inherit; text-decoration: none; }
 }
 .popup-assess-btn:hover { background: rgba(255,51,87,0.2); }
 
-/* ═══════════════════════════════════════════════
-   RESPONSIVE
-═══════════════════════════════════════════════ */
-@media (max-width: 900px) {
-  #sidebar { width: 200px; min-width: 200px; }
-  #right-panel { width: 240px; min-width: 240px; }
+
+/* ── MOBILE BOTTOM NAV ───────────────────────── */
+#mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg1);border-top:1px solid var(--border);z-index:50;height:60px}
+.mobile-nav-inner{display:flex;align-items:stretch;height:100%}
+.mob-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:var(--t3);transition:color .15s;padding:8px 4px;border-right:1px solid var(--border)}
+.mob-btn:last-child{border-right:none}
+.mob-btn.active{color:var(--red)}
+.mob-btn span{font-size:18px;line-height:1}
+.mob-btn.report-btn{background:linear-gradient(135deg,var(--red),#ff5577);color:#fff;font-weight:700}
+#feed-drawer{display:none;position:fixed;bottom:60px;left:0;right:0;background:var(--bg1);border-top:1px solid var(--border);z-index:45;max-height:55vh;transform:translateY(100%);transition:transform .3s cubic-bezier(.34,1.2,.64,1);flex-direction:column}
+#feed-drawer.open{transform:translateY(0)}
+.drawer-handle-wrap{padding:10px;display:flex;justify-content:center;border-bottom:1px solid var(--border);flex-shrink:0}
+.drawer-handle{width:36px;height:4px;background:var(--border);border-radius:2px}
+.drawer-header{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.drawer-title{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)}
+.drawer-close{font-size:16px;color:var(--t3);padding:4px 8px}
+#drawer-feed-list{overflow-y:auto;flex:1}
+
+/* ── RESPONSIVE ──────────────────────────────── */
+@media (max-width:900px){
+  #sidebar{width:200px;min-width:200px}
+  #right-panel{width:240px;min-width:240px}
 }
-@media (max-width: 680px) {
-  #sidebar { display: none; }
-  #right-panel { display: none; }
+@media (max-width:680px){
+  #sidebar{display:none}
+  #right-panel{display:none}
+  .search-hint{display:none}
+  #mobile-nav{display:flex}
+  #feed-drawer{display:flex}
+  #main{padding-bottom:60px}
+  #safety-panel{position:fixed;bottom:60px;top:auto;left:0;right:0;width:100%;border-radius:var(--radius-xl) var(--radius-xl) 0 0;max-height:70vh;overflow-y:auto;animation:slideUp .3s ease}
+  #topbar{top:10px;left:10px;right:10px;gap:7px}
+  #search-box{height:38px;padding:0 12px}
+  #search-input{font-size:12px}
+  #city-toggle{padding:4px}
+  .city-btn{padding:5px 10px;font-size:12px}
+  #map-hint{bottom:80px;font-size:11px;padding:7px 14px}
+  #toast{bottom:72px}
 }
+@media (max-width:400px){
+  .pill-grid-3{grid-template-columns:1fr 1fr}
+  .city-btn{padding:5px 8px;font-size:11px}
+}
+
 </style>
 </head>
 
@@ -1113,6 +1146,35 @@ a { color: inherit; text-decoration: none; }
 </div>
 
 <!-- ── TOAST ──────────────────────────────────────────────── -->
+
+<!-- MOBILE FEED DRAWER -->
+<div id="feed-drawer">
+  <div class="drawer-handle-wrap"><div class="drawer-handle"></div></div>
+  <div class="drawer-header">
+    <span class="drawer-title">Recent Reports <span id="drawer-count" style="color:var(--red)"></span></span>
+    <button class="drawer-close" onclick="toggleDrawer()">✕</button>
+  </div>
+  <div id="drawer-feed-list" class="feed-list"></div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<div id="mobile-nav">
+  <div class="mobile-nav-inner">
+    <button class="mob-btn active" id="mob-map-btn" onclick="mobSetView()">
+      <span>🗺️</span>Map
+    </button>
+    <button class="mob-btn report-btn" onclick="openModal()">
+      <span>⚠️</span>Report
+    </button>
+    <button class="mob-btn" id="mob-feed-btn" onclick="toggleDrawer()">
+      <span>📋</span>Reports
+    </button>
+    <button class="mob-btn" id="mob-city-btn" onclick="toggleCity()">
+      <span>🏙️</span><span id="mob-city-label">Mumbai</span>
+    </button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1259,6 +1321,8 @@ function renderIncidents() {
 
   renderFeed(visible)
   document.getElementById('sidebar-count').textContent = state.incidents.length
+  const ml = document.getElementById('mob-city-label')
+  if(ml) ml.textContent = state.city
   document.getElementById('feed-count').textContent = visible.length
 }
 
@@ -1581,6 +1645,25 @@ async function loadIncidents() {
 // ═══════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════
+
+// MOBILE FUNCTIONS
+function toggleDrawer() {
+  state.drawerOpen = !state.drawerOpen
+  document.getElementById('feed-drawer').classList.toggle('open', state.drawerOpen)
+  document.getElementById('mob-feed-btn').classList.toggle('active', state.drawerOpen)
+}
+
+function mobSetView() {
+  document.querySelectorAll('.mob-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('mob-map-btn').classList.add('active')
+}
+
+function toggleCity() {
+  const newCity = state.city === 'Mumbai' ? 'Delhi' : 'Mumbai'
+  const btn = document.querySelector('.city-btn[data-city="' + newCity + '"]')
+  setCity(newCity, btn)
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initMap()
   loadIncidents()
