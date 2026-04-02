@@ -240,6 +240,22 @@ def stats():
         "hot_areas": [dict(r) for r in hot_areas],
     })
 
+import threading
+import requests
+import time
+
+def keep_alive():
+    time.sleep(30)
+    while True:
+        try:
+            requests.get('https://saferouteai-zbf0.onrender.com')
+            print('keep-alive ping sent')
+        except:
+            pass
+        time.sleep(840)
+
+threading.Thread(target=keep_alive, daemon=True).start()
+
 
 # ── START ─────────────────────────────────────────────────
 
