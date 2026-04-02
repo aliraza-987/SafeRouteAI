@@ -6,6 +6,9 @@ from flask import Flask, request, jsonify, render_template, g
 from flask_cors import CORS
 from dotenv import load_dotenv
 from groq import Groq
+import threading
+import requests
+import time
 
 load_dotenv()
 
@@ -240,9 +243,7 @@ def stats():
         "hot_areas": [dict(r) for r in hot_areas],
     })
 
-import threading
-import requests
-import time
+
 
 def keep_alive():
     time.sleep(30)
