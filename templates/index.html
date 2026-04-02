@@ -288,6 +288,43 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
 }
 
+/* ── SEARCH DROPDOWN ─────────────────────────── */
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  z-index: 100;
+  overflow: hidden;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.search-dropdown-item {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--t2);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border2);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  transition: background .15s;
+}
+.search-dropdown-item:last-child { border-bottom: none; }
+.search-dropdown-item:hover { background: var(--bg3); color: var(--t1); }
+.search-dropdown-item .sd-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+.search-dropdown-item .sd-name { font-weight: 600; color: var(--t1); margin-bottom: 2px; }
+.search-dropdown-item .sd-area { font-size: 11px; color: var(--t3); }
+
+/* make topbar search box relative for dropdown positioning */
+#search-box { position: relative; }
+
+/* area input in modal also needs dropdown */
+.area-input-wrap { position: relative; }
+
 /* City toggle */
 #city-toggle {
   display: flex;
@@ -317,12 +354,15 @@ a { color: inherit; text-decoration: none; }
 #map-container {
   flex: 1;
   position: relative;
+  z-index: 0;
 }
 
 #map {
   width: 100%;
   height: 100%;
   background: #0a0a14;
+  z-index: 0;
+  position: relative;
 }
 
 /* Leaflet overrides */
@@ -1004,10 +1044,14 @@ a { color: inherit; text-decoration: none; }
     <!-- Top bar -->
     <div id="topbar">
       <div class="topbar-glass" id="search-box">
-        <span class="search-icon">🔍</span>
-        <input id="search-input" type="text" placeholder="Search area (e.g. Bandra, Connaught Place)..." />
-        <span class="search-hint">📍 Click map to place pin</span>
-      </div>
+  <span class="search-icon">🔍</span>
+  <input id="search-input" type="text" 
+    placeholder="Search area e.g. Bandra, CP..." 
+    autocomplete="off"
+    oninput="onMainSearch(this.value)" />
+  <span class="search-hint">📍 Click map to check safety</span>
+  <div class="search-dropdown" id="main-search-dropdown" style="display:none"></div>
+</div>
       <div class="topbar-glass" id="city-toggle">
         <button class="city-btn active" data-city="Mumbai" onclick="setCity('Mumbai', this)">Mumbai</button>
         <button class="city-btn" data-city="Delhi" onclick="setCity('Delhi', this)">Delhi</button>
@@ -1070,6 +1114,24 @@ a { color: inherit; text-decoration: none; }
 
     <!-- Step 1 -->
     <div class="modal-body" id="step1">
+  <!-- HOW TO REPORT STEPS -->
+  <div style="display:flex;gap:6px;margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:var(--radius-md);border:1px solid var(--border)">
+    <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+      <p style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">How to report</p>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t3)">
+        <span style="width:18px;height:18px;border-radius:50%;background:var(--red-dim);border:1px solid var(--red-border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);flex-shrink:0;font-weight:700">1</span>
+        Search your area below and select from results
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t3)">
+        <span style="width:18px;height:18px;border-radius:50%;background:var(--red-dim);border:1px solid var(--red-border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);flex-shrink:0;font-weight:700">2</span>
+        Select the type of incident
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t3)">
+        <span style="width:18px;height:18px;border-radius:50%;background:var(--red-dim);border:1px solid var(--red-border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);flex-shrink:0;font-weight:700">3</span>
+        Hit Continue → add time & description → Submit
+      </div>
+    </div>
+  </div>
       <div class="form-group">
         <label class="form-label">City</label>
         <div class="pill-grid pill-grid-2">
@@ -1494,6 +1556,124 @@ function setCity(city, btn) {
 function switchView(view, btn) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
+  if (view === 'stats') showStatsPanel()
+  if (view === 'map') closeStatsPanel()
+}
+
+function closeStatsPanel() {
+  const p = document.getElementById('stats-panel')
+  if (p) p.remove()
+}
+
+async function showStatsPanel() {
+  closeStatsPanel()
+  // create panel
+  const panel = document.createElement('div')
+  panel.id = 'stats-panel'
+  panel.style.cssText = `
+    position:absolute;top:70px;left:14px;width:320px;
+    background:var(--bg2);border:1px solid var(--border);
+    border-radius:var(--radius-xl);box-shadow:var(--shadow);
+    z-index:25;overflow:hidden;max-height:calc(100vh - 100px);
+    overflow-y:auto;animation:slideInRight .3s ease;
+  `
+  panel.innerHTML = `
+    <div style="padding:16px 18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-family:var(--font-display);font-size:15px;font-weight:700">📊 Area Stats</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${state.city} safety overview</div>
+      </div>
+      <button onclick="closeStatsPanel()" style="width:26px;height:26px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:14px">✕</button>
+    </div>
+    <div id="stats-body" style="padding:16px 18px">
+      <div class="sp-loading">
+        <div class="skeleton" style="height:16px;width:50%;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:8px"></div>
+        <div class="skeleton" style="height:80px;border-radius:12px"></div>
+      </div>
+    </div>
+  `
+  document.getElementById('map-container').appendChild(panel)
+
+  try {
+    const res = await fetch(`/api/stats?city=${state.city}`)
+    const data = await res.json()
+    renderStats(data)
+  } catch {
+    document.getElementById('stats-body').innerHTML = `
+      <p style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Could not load stats. Try again.</p>
+    `
+  }
+}
+
+function renderStats(data) {
+  const typeEmojis = {
+    harassment:'😰', poor_lighting:'🔦',
+    unsafe_area:'⚠️', stalking:'👁️',
+    theft:'💼', other:'📌'
+  }
+
+  const typeRows = (data.by_type || []).map(t => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);text-transform:capitalize">
+        <span>${typeEmojis[t.type] || '📌'}</span>
+        ${t.type.replace(/_/g,' ')}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="height:4px;border-radius:2px;background:var(--red);width:${Math.round((t.count/data.total)*80)}px;min-width:4px"></div>
+        <span style="font-size:12px;font-weight:600;color:var(--t1);min-width:24px;text-align:right">${t.count}</span>
+      </div>
+    </div>
+  `).join('')
+
+  const hotRows = (data.hot_areas || []).map((a, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="width:20px;height:20px;border-radius:6px;background:var(--red-dim);border:1px solid var(--red-border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);font-weight:700">${i+1}</span>
+        <span style="font-size:12px;color:var(--t2)">${a.area_name}</span>
+      </div>
+      <span style="font-size:12px;font-weight:600;color:var(--t1)">${a.count} reports</span>
+    </div>
+  `).join('')
+
+  const timeRows = (data.by_time || []).map(t => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <span style="font-size:12px;color:var(--t2);text-transform:capitalize">${t.time_of_day.replace(/_/g,' ')}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="height:4px;border-radius:2px;background:var(--orange);width:${Math.round((t.count/data.total)*80)}px;min-width:4px"></div>
+        <span style="font-size:12px;font-weight:600;color:var(--t1)">${t.count}</span>
+      </div>
+    </div>
+  `).join('')
+
+  document.getElementById('stats-body').innerHTML = `
+    <!-- Total -->
+    <div style="padding:14px;background:var(--bg3);border-radius:var(--radius-md);border:1px solid var(--border2);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:3px">Total Reports in ${state.city}</div>
+        <div style="font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--t1);line-height:1">${data.total}</div>
+      </div>
+      <span style="font-size:32px">🛡️</span>
+    </div>
+
+    <!-- By Type -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:8px">By Incident Type</div>
+      ${typeRows}
+    </div>
+
+    <!-- Hotspot Areas -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:8px">🔥 Top Hotspot Areas</div>
+      ${hotRows}
+    </div>
+
+    <!-- By Time -->
+    <div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:8px">By Time of Day</div>
+      ${timeRows}
+    </div>
+  `
 }
 
 // ═══════════════════════════════════════════════
@@ -1610,6 +1790,106 @@ function showToast(msg) {
   t.classList.add('show')
   setTimeout(() => t.classList.remove('show'), 3200)
 }
+
+// ═══════════════════════════════════════════════
+// NOMINATIM SEARCH (free OpenStreetMap API)
+// ═══════════════════════════════════════════════
+let searchTimer = null
+
+async function searchPlaces(query, city) {
+  if (!query || query.length < 2) return []
+  const cityBias = city === 'Mumbai'
+    ? '&viewbox=72.7,18.8,73.0,19.3&bounded=0'
+    : '&viewbox=76.8,28.4,77.5,28.9&bounded=0'
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ' ' + city + ' India')}&format=json&limit=6&addressdetails=1${cityBias}`
+  try {
+    const res = await fetch(url, {
+      headers: { 'Accept-Language': 'en' }
+    })
+    return await res.json()
+  } catch {
+    return []
+  }
+}
+
+function formatResult(place) {
+  const addr = place.address || {}
+  const name = addr.suburb || addr.neighbourhood || addr.road
+    || addr.village || addr.town || place.display_name.split(',')[0]
+  const area = [addr.city || addr.state_district, addr.state]
+    .filter(Boolean).join(', ')
+  return { name, area, lat: parseFloat(place.lat), lng: parseFloat(place.lon) }
+}
+
+function renderDropdown(results, dropdownId, onSelect) {
+  const dd = document.getElementById(dropdownId)
+  if (!results.length) { dd.style.display = 'none'; return }
+  
+  // store results on element
+  dd._results = results
+  
+  dd.innerHTML = results.map((r, i) => {
+    const f = formatResult(r)
+    return `
+      <div class="search-dropdown-item" onclick="pickResult('${dropdownId}', ${i})">
+        <span class="sd-icon">📍</span>
+        <div>
+          <div class="sd-name">${f.name}</div>
+          <div class="sd-area">${f.area}</div>
+        </div>
+      </div>`
+  }).join('')
+  dd.style.display = 'block'
+}
+
+function pickResult(dropdownId, i) {
+  const dd = document.getElementById(dropdownId)
+  const place = dd._results[i]
+  const f = formatResult(place)
+  const lat = parseFloat(place.lat)
+  const lng = parseFloat(place.lon)
+
+  if (dropdownId === 'main-search-dropdown') {
+    document.getElementById('search-input').value = f.name
+    dd.style.display = 'none'
+    state.map.flyTo([lat, lng], 15, { duration: 1.2 })
+    setTimeout(() => {
+      placePin(lat, lng)
+      fetchAssessment(lat, lng, f.name)
+    }, 800)
+  } else {
+    document.getElementById('area-input').value = f.name
+    dd.style.display = 'none'
+    placePin(lat, lng)
+    state.map.flyTo([lat, lng], 15, { duration: 1.2 })
+    document.getElementById('modal-pin-info').textContent =
+      `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    document.getElementById('pin-warning').style.display = 'none'
+    showToast('📍 Pin placed at ' + f.name)
+  }
+}
+
+function onModalSearch(val) {
+  clearTimeout(searchTimer)
+  if (!val || val.length < 2) {
+    document.getElementById('modal-search-dropdown').style.display = 'none'
+    return
+  }
+  searchTimer = setTimeout(async () => {
+    const results = await searchPlaces(val, state.form.city || state.city)
+    renderDropdown(results, 'modal-search-dropdown', null)
+  }, 350)
+}
+
+// close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  const mainDd = document.getElementById('main-search-dropdown')
+  const modalDd = document.getElementById('modal-search-dropdown')
+  if (!e.target.closest('#search-box') && mainDd)
+    mainDd.style.display = 'none'
+  if (!e.target.closest('.area-input-wrap') && modalDd)
+    modalDd.style.display = 'none'
+})
 
 // ═══════════════════════════════════════════════
 // UTILS
