@@ -366,8 +366,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Leaflet overrides */
-.leaflet-tile-pane { filter: brightness(0.5) saturate(0.25) hue-rotate(210deg); }
-.leaflet-control-zoom {
+.leaflet-tile-pane { opacity: 0.85; }
   border: 1px solid var(--border) !important;
   border-radius: var(--radius-md) !important;
   overflow: hidden;
@@ -959,6 +958,15 @@ a { color: inherit; text-decoration: none; }
 .mob-btn.active{color:var(--red)}
 .mob-btn span{font-size:18px;line-height:1}
 .mob-btn.report-btn{background:linear-gradient(135deg,var(--red),#ff5577);color:#fff;font-weight:700}
+.mob-btn.sos-btn {background: linear-gradient(135deg, #ff0000, #cc0000);
+  color: #fff;
+  font-weight: 700;
+  animation: sosPulse 2s ease infinite;
+}
+@keyframes sosPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(255,0,0,0); }
+}
 #feed-drawer{display:none;position:fixed;bottom:60px;left:0;right:0;background:var(--bg1);border-top:1px solid var(--border);z-index:45;max-height:55vh;transform:translateY(100%);transition:transform .3s cubic-bezier(.34,1.2,.64,1);flex-direction:column}
 #feed-drawer.open{transform:translateY(0)}
 .drawer-handle-wrap{padding:10px;display:flex;justify-content:center;border-bottom:1px solid var(--border);flex-shrink:0}
@@ -1013,6 +1021,9 @@ a { color: inherit; text-decoration: none; }
     <button class="btn-report" onclick="openModal()">
       ⚠️ Report Incident
     </button>
+    <button class="btn-report" onclick="openSOS()" style="background:linear-gradient(135deg,#ff0000,#cc0000);margin-top:0;box-shadow:0 4px 20px rgba(255,0,0,0.35)">
+  🆘 SOS Emergency
+</button>
 
     <nav class="sidebar-nav">
       <p class="nav-label">Navigation</p>
@@ -1226,14 +1237,79 @@ a { color: inherit; text-decoration: none; }
       <span>🗺️</span>Map
     </button>
     <button class="mob-btn report-btn" onclick="openModal()">
-      <span>⚠️</span>Report
-    </button>
+  <span>⚠️</span>Report
+</button>
+<button class="mob-btn sos-btn" onclick="openSOS()">
+  <span>🆘</span>SOS
+</button>
     <button class="mob-btn" id="mob-feed-btn" onclick="toggleDrawer()">
       <span>📋</span>Reports
     </button>
     <button class="mob-btn" id="mob-city-btn" onclick="toggleCity()">
       <span>🏙️</span><span id="mob-city-label">Mumbai</span>
     </button>
+  </div>
+</div>
+
+<!-- SOS OVERLAY -->
+<div id="sos-overlay" onclick="if(event.target===this)closeSOS()" style="display:none"></div>
+
+<div id="sos-modal" style="display:none">
+  <div class="modal-handle"></div>
+  <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:10px;background:rgba(255,0,0,0.15);border:1px solid rgba(255,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px">🆘</div>
+      <div>
+        <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Emergency Contacts</div>
+        <div style="font-size:11px;color:var(--t3)">Tap to call immediately</div>
+      </div>
+    </div>
+    <button onclick="closeSOS()" style="width:30px;height:30px;border-radius:9px;background:var(--bg3);color:var(--t3);font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+  </div>
+  <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+    <a href="tel:112" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,0,0,0.12);border:1px solid rgba(255,0,0,0.3);border-radius:var(--radius-md);text-decoration:none">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">🚨</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">National Emergency</div>
+          <div style="font-size:11px;color:var(--t3)">Police + Ambulance + Fire</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:#ff3333">112</div>
+    </a>
+    <a href="tel:1091" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,51,87,0.12);border:1px solid rgba(255,51,87,0.3);border-radius:var(--radius-md);text-decoration:none">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">👩</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Women Helpline</div>
+          <div style="font-size:11px;color:var(--t3)">24/7 women in distress</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--red)">1091</div>
+    </a>
+    <a href="tel:100" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(79,142,247,0.12);border:1px solid rgba(79,142,247,0.3);border-radius:var(--radius-md);text-decoration:none">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">👮</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Police</div>
+          <div style="font-size:11px;color:var(--t3)">Local police station</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--blue)">100</div>
+    </a>
+    <a href="tel:1096" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(155,109,255,0.12);border:1px solid rgba(155,109,255,0.3);border-radius:var(--radius-md);text-decoration:none">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">🛡️</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Nirbhaya Helpline</div>
+          <div style="font-size:11px;color:var(--t3)">Anti-harassment helpline</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--purple)">1096</div>
+    </a>
+    <div style="padding:10px 12px;background:var(--bg3);border-radius:var(--radius-md);font-size:11px;color:var(--t3);text-align:center;line-height:1.6">
+      💡 If you feel unsafe, trust your instincts.<br/>Move to a crowded area and call immediately.
+    </div>
   </div>
 </div>
 
@@ -1942,6 +2018,18 @@ function toggleCity() {
   const newCity = state.city === 'Mumbai' ? 'Delhi' : 'Mumbai'
   const btn = document.querySelector('.city-btn[data-city="' + newCity + '"]')
   setCity(newCity, btn)
+}
+function openSOS() {
+  const overlay = document.getElementById('sos-overlay')
+  const modal = document.getElementById('sos-modal')
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:150;display:flex;align-items:flex-end;justify-content:center'
+  modal.style.cssText = 'width:100%;max-width:480px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl) var(--radius-xl) 0 0;box-shadow:var(--shadow);animation:slideUp .35s cubic-bezier(.34,1.2,.64,1);overflow:hidden;max-height:92vh;overflow-y:auto'
+  overlay.appendChild(modal)
+}
+
+function closeSOS() {
+  const overlay = document.getElementById('sos-overlay')
+  overlay.style.display = 'none'
 }
 
 document.addEventListener('DOMContentLoaded', () => {
