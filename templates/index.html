@@ -1200,6 +1200,11 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <div class="form-group">
+        <label class="form-label">Your Name (optional)</label>
+        <input class="form-input" id="reporter-input" type="text" placeholder="e.g. Priya S. or Anonymous" />
+      </div>
+
+      <div class="form-group">
         <label class="form-label">Description (optional)</label>
         <textarea class="form-textarea" id="desc-input" rows="3"
           placeholder="Briefly describe what happened or why this area feels unsafe..."></textarea>
@@ -1446,6 +1451,7 @@ function renderIncidents() {
           ? `<div class="popup-desc">${incident.description}</div>`
           : ''}
         <div class="popup-time">🕐 ${TIME_LABELS[incident.time_of_day] || incident.time_of_day}</div>
+        ${incident.reported_by ? `<div style="font-size:10px;color:#5a5a78;margin-top:4px">👤 Reported by ${incident.reported_by}</div>` : ''}
         <button class="popup-assess-btn"
           onclick="fetchAssessment(${incident.lat},${incident.lng},'${incident.area_name}');state.map.closePopup()">
           🔍 Check Area Safety
@@ -1467,12 +1473,15 @@ function renderIncidents() {
 
 function renderFeed(incidents) {
   const list = document.getElementById('feed-list')
+  const drawer = document.getElementById('drawer-feed-list')
   if (!incidents.length) {
-    list.innerHTML = '<div class="feed-empty">No reports yet for this city.<br/>Be the first to report an incident.</div>'
+    const empty = '<div class="feed-empty">No reports yet for this city.<br/>Be the first to report an incident.</div>'
+    list.innerHTML = empty
+    if (drawer) drawer.innerHTML = empty
     return
   }
 
-  list.innerHTML = [...incidents].reverse().map(i => {
+list.innerHTML = [...incidents].map(i => {
     const cfg = TYPE_CONFIG[i.type] || TYPE_CONFIG.other
     const timeAgo = getTimeAgo(i.created_at)
     return `
@@ -1484,11 +1493,13 @@ function renderFeed(incidents) {
           <div class="feed-type">${i.type.replace(/_/g,' ')}</div>
           <div class="feed-area">📍 ${i.area_name}, ${i.city}</div>
           ${i.description ? `<div class="feed-desc">${i.description}</div>` : ''}
+          <div style="font-size:10px;color:var(--t3);margin-top:3px">${i.reported_by ? '👤 ' + i.reported_by : '👤 Anonymous'}</div>
         </div>
         <div class="feed-time">${timeAgo}</div>
       </button>
     `
   }).join('')
+  if (drawer) drawer.innerHTML = list.innerHTML
 }
 
 function onFeedClick(lat, lng, area) {
@@ -1821,6 +1832,7 @@ async function submitReport() {
   btn.textContent = 'Submitting...'
   btn.disabled = true
 
+  const reporterName = document.getElementById('reporter-input').value.trim()
   const payload = {
     lat:         state.selectedPin.lat,
     lng:         state.selectedPin.lng,
@@ -1829,6 +1841,7 @@ async function submitReport() {
     time_of_day: state.form.time_of_day,
     area_name:   document.getElementById('area-input').value.trim(),
     city:        state.form.city,
+    reported_by: reporterName || 'Anonymous',
   }
 
   try {
@@ -1844,6 +1857,7 @@ async function submitReport() {
     state.incidents.unshift({ id: Date.now(), ...payload, created_at: new Date().toISOString(), upvotes: 0 })
   }
 
+  await loadIncidents()
   renderIncidents()
   closeModal()
   showToast('✅ Report submitted! Thank you for keeping the community safe 💪')
@@ -1853,6 +1867,7 @@ async function submitReport() {
   btn.disabled = false
   document.getElementById('area-input').value = ''
   document.getElementById('desc-input').value = ''
+  document.getElementById('reporter-input').value = ''
   state.selectedPin = null
   if (state.pinMarker) { state.pinMarker.remove(); state.pinMarker = null }
   state.form = { city: state.city, type: null, time_of_day: null }
