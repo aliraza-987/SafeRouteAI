@@ -1158,7 +1158,10 @@ a { color: inherit; text-decoration: none; }
 
       <div class="form-group">
         <label class="form-label">Area / Locality</label>
-        <input class="form-input" id="area-input" type="text" placeholder="e.g. Bandra West, Karol Bagh..." />
+        <div class="area-input-wrap">
+  <input class="form-input" id="area-input" type="text" placeholder="e.g. Bandra West, Karol Bagh..." autocomplete="off" oninput="onModalSearch(this.value)" />
+  <div class="search-dropdown" id="modal-search-dropdown" style="display:none"></div>
+</div>
       </div>
 
       <div class="form-group">
@@ -1495,13 +1498,29 @@ list.innerHTML = [...incidents].map(i => {
           ${i.description ? `<div class="feed-desc">${i.description}</div>` : ''}
           <div style="font-size:10px;color:var(--t3);margin-top:3px">${i.reported_by ? '👤 ' + i.reported_by : '👤 Anonymous'}</div>
         </div>
-        <div class="feed-time">${timeAgo}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <div class="feed-time">${timeAgo}</div>
+          <button onclick="upvoteIncident(event,${i.id})" id="upvote-${i.id}" style="font-size:10px;color:var(--t3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px 7px;cursor:pointer;transition:all .15s" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--t3)'">
+            👍 ${i.upvotes || 0}
+          </button>
+        </div>
       </button>
     `
   }).join('')
   if (drawer) drawer.innerHTML = list.innerHTML
 }
-
+async function upvoteIncident(e, id) {
+  e.stopPropagation()
+  try {
+    const res = await fetch('/api/incidents/' + id + '/upvote', { method: 'POST' })
+    const data = await res.json()
+    const btn = document.getElementById('upvote-' + id)
+    if (btn) btn.innerHTML = '👍 ' + data.upvotes
+    showToast('👍 Thanks for confirming this report!')
+  } catch {
+    showToast('Could not upvote. Try again.')
+  }
+}
 function onFeedClick(lat, lng, area) {
   state.map.flyTo([lat, lng], 15, { duration: 1 })
   fetchAssessment(lat, lng, area)
@@ -1617,6 +1636,7 @@ function renderSafetyPanel(data) {
       <span class="sp-tip-icon">💡</span>
       <span>${data.tip}</span>
     </div>
+    <a href="https://wa.me/?text=${encodeURIComponent('SafeRouteAI Alert - ' + data.area_name + ' - Safety: ' + lv.label + ' (' + data.safety_score + '/100) - ' + data.summary + ' - https://saferouteai-zbf0.onrender.com')}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:var(--radius-md);font-size:12px;font-weight:600;color:#25d366;text-decoration:none;margin-top:8px"><span style="font-size:16px">📲</span> Share on WhatsApp</a>
   `
 
   document.getElementById('safety-panel').classList.add('visible')
@@ -1959,6 +1979,17 @@ function pickResult(dropdownId, i) {
     document.getElementById('pin-warning').style.display = 'none'
     showToast('📍 Pin placed at ' + f.name)
   }
+}
+function onMainSearch(val) {
+  clearTimeout(searchTimer)
+  if (!val || val.length < 2) {
+    document.getElementById('main-search-dropdown').style.display = 'none'
+    return
+  }
+  searchTimer = setTimeout(async () => {
+    const results = await searchPlaces(val, state.city)
+    renderDropdown(results, 'main-search-dropdown', null)
+  }, 350)
 }
 
 function onModalSearch(val) {
