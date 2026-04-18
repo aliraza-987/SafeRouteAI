@@ -84,8 +84,8 @@ def post_incident():
     db = get_db()
     cur = db.execute(
         """INSERT INTO incidents
-           (lat, lng, type, description, time_of_day, area_name, city, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+           (lat, lng, type, description, time_of_day, area_name, city, created_at, reported_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             data["lat"], data["lng"], data["type"],
             data.get("description", ""),
@@ -265,5 +265,7 @@ if __name__ == "__main__":
     # Run seed data if DB is empty
     from seed_data import seed
     seed()
+    from user_reports import add_user_reports
+    add_user_reports()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
