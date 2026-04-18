@@ -1159,6 +1159,9 @@ a { color: inherit; text-decoration: none; }
 
       <div class="form-group">
         <label class="form-label">Area / Locality</label>
+        <button onclick="useMyLocation()" id="location-btn" style="width:100%;padding:9px 14px;background:var(--blue-dim,rgba(79,142,247,0.12));border:1px solid rgba(79,142,247,0.3);border-radius:var(--radius-md);font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s" onmouseover="this.style.background='rgba(79,142,247,0.2)'" onmouseout="this.style.background='rgba(79,142,247,0.12)'">
+          📍 Use My Current Location
+        </button>
         <div class="area-input-wrap">
   <input class="form-input" id="area-input" type="text" placeholder="e.g. Bandra West, Karol Bagh..." autocomplete="off" oninput="onModalSearch(this.value)" />
   <div class="search-dropdown" id="modal-search-dropdown" style="display:none"></div>
@@ -1911,26 +1914,64 @@ let searchTimer = null
 
 async function searchPlaces(query, city) {
   if (!query || query.length < 2) return []
-  const cityBias = city === 'Mumbai'
-    ? '&viewbox=72.7,18.8,73.0,19.3&bounded=0'
-    : '&viewbox=76.8,28.4,77.5,28.9&bounded=0'
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ' ' + city + ' India')}&format=json&limit=6&addressdetails=1${cityBias}`
-  try {
-    const res = await fetch(url, {
-      headers: { 'Accept-Language': 'en' }
-    })
-    return await res.json()
-  } catch {
-    return []
-  }
+  
+  const cityCoords = city === 'Mumbai' ? '19.0760,72.8777' : '28.6139,77.2090'
+  
+  const [nominatimResults, photonResults] = await Promise.allSettled([
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ' ' + city)}&format=json&limit=6&addressdetails=1&countrycodes=in&dedupe=1&viewbox=${city==='Mumbai'?'72.77,18.89,72.99,19.27':'76.84,28.40,77.35,28.88'}&bounded=1`,
+      { headers: { 'Accept-Language': 'en' } }).then(r => r.json()),
+    fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query + ' ' + city + ' India')}&limit=6&lat=${cityCoords.split(',')[0]}&lon=${cityCoords.split(',')[1]}&lang=en`)
+      .then(r => r.json()).then(d => d.features || [])
+  ])
+
+  const nominatim = nominatimResults.status === 'fulfilled' ? nominatimResults.value : []
+  const photon = photonResults.status === 'fulfilled' ? photonResults.value : []
+
+  const photonConverted = photon.map(f => ({
+    lat: f.geometry.coordinates[1],
+    lon: f.geometry.coordinates[0],
+    display_name: f.properties.name || '',
+    address: {
+      amenity: f.properties.name,
+      road: f.properties.street,
+      suburb: f.properties.district,
+      neighbourhood: f.properties.district,
+      city: f.properties.city,
+      state: f.properties.state,
+    }
+  }))
+
+  const all = [...nominatim, ...photonConverted]
+  const seen = new Set()
+  const merged = all.filter(r => {
+    const key = `${parseFloat(r.lat).toFixed(3)},${parseFloat(r.lon).toFixed(3)}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  const priority = ['station','railway','metro','garden','park','hospital','college','market','mall','temple','mosque','church','beach','fort','complex','tower','building']
+  return merged.sort((a, b) => {
+    const aName = (a.display_name || '').toLowerCase()
+    const bName = (b.display_name || '').toLowerCase()
+    const aScore = priority.some(p => aName.includes(p)) ? 0 : 1
+    const bScore = priority.some(p => bName.includes(p)) ? 0 : 1
+    return aScore - bScore
+  })
 }
 
 function formatResult(place) {
   const addr = place.address || {}
-  const name = addr.suburb || addr.neighbourhood || addr.road
-    || addr.village || addr.town || place.display_name.split(',')[0]
-  const area = [addr.city || addr.state_district, addr.state]
-    .filter(Boolean).join(', ')
+  const name = place.namedetails?.name
+    || addr.amenity || addr.building || addr.railway
+    || addr.leisure || addr.tourism || addr.shop
+    || addr.suburb || addr.neighbourhood || addr.road
+    || addr.village || addr.town
+    || place.display_name.split(',')[0]
+  const area = [
+    addr.suburb || addr.neighbourhood || addr.road,
+    addr.city || addr.town || addr.state_district
+  ].filter(Boolean).join(', ')
   return { name, area, lat: parseFloat(place.lat), lng: parseFloat(place.lon) }
 }
 
@@ -1980,6 +2021,51 @@ function pickResult(dropdownId, i) {
     document.getElementById('pin-warning').style.display = 'none'
     showToast('📍 Pin placed at ' + f.name)
   }
+}
+async function useMyLocation() {
+  const btn = document.getElementById('location-btn')
+  btn.textContent = '⏳ Getting location...'
+  btn.disabled = true
+
+  if (!navigator.geolocation) {
+    showToast('❌ Geolocation not supported by your browser')
+    btn.innerHTML = '📍 Use My Current Location'
+    btn.disabled = false
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude
+    const lng = pos.coords.longitude
+
+    // Reverse geocode to get area name
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lng=${lng}&format=json&addressdetails=1`, {
+        headers: { 'Accept-Language': 'en' }
+      })
+      const data = await res.json()
+      const addr = data.address || {}
+      const areaName = addr.amenity || addr.building || addr.road
+        || addr.suburb || addr.neighbourhood
+        || addr.town || data.display_name.split(',')[0]
+      document.getElementById('area-input').value = areaName
+    } catch {
+      document.getElementById('area-input').value = `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    }
+
+    placePin(lat, lng)
+    state.map.flyTo([lat, lng], 16, { duration: 1.2 })
+    document.getElementById('modal-pin-info').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    document.getElementById('pin-warning').style.display = 'none'
+    showToast('📍 Location detected!')
+
+    btn.innerHTML = '📍 Use My Current Location'
+    btn.disabled = false
+  }, (err) => {
+    showToast('❌ Could not get location. Please allow location access.')
+    btn.innerHTML = '📍 Use My Current Location'
+    btn.disabled = false
+  }, { timeout: 10000, enableHighAccuracy: true })
 }
 function onMainSearch(val) {
   clearTimeout(searchTimer)
