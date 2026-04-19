@@ -274,6 +274,11 @@ def admin_get_incidents():
         query += " AND status=?"
         params.append(status)
 
+    city_filter = request.args.get("city", "").strip()
+    if city_filter:
+        query += " AND city=?"
+        params.append(city_filter)
+
     if search:
         query += " AND (area_name LIKE ? OR reported_by LIKE ? OR description LIKE ?)"
         params += [f"%{search}%", f"%{search}%", f"%{search}%"]
@@ -299,6 +304,15 @@ def admin_reject(incident_id):
     db.execute("UPDATE incidents SET status='rejected' WHERE id=?", (incident_id,))
     db.commit()
     return jsonify({"success": True})
+@app.route("/api/admin/incidents/<int:incident_id>/setvotes", methods=["POST"])
+@admin_required
+def admin_set_votes(incident_id):
+    data = request.get_json()
+    upvotes = max(0, int(data.get("upvotes", 0)))
+    db = get_db()
+    db.execute("UPDATE incidents SET upvotes=? WHERE id=?", (upvotes, incident_id))
+    db.commit()
+    return jsonify({"success": True, "upvotes": upvotes})
 
 
 @app.route("/api/admin/incidents/<int:incident_id>", methods=["DELETE"])

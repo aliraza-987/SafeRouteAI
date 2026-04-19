@@ -243,8 +243,18 @@ input{font-family:inherit;color:inherit}
       <div class="stat-card-value" id="stat-rejected" style="color:var(--red)">—</div>
       <div class="stat-card-sub" style="color:var(--red)">Not shown</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-card-label">🏙️ Mumbai</div>
+      <div class="stat-card-value" id="stat-mumbai" style="color:var(--blue)">—</div>
+      <div class="stat-card-sub" style="color:var(--blue)">Approved incidents</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">🕌 Delhi</div>
+      <div class="stat-card-value" id="stat-delhi" style="color:var(--purple)">—</div>
+      <div class="stat-card-sub" style="color:var(--purple)">Approved incidents</div>
+    </div>
   </div>
-
+ 
   <!-- Content -->
   <div class="admin-content">
 
@@ -254,6 +264,9 @@ input{font-family:inherit;color:inherit}
       <button class="filter-btn" id="f-pending" onclick="setFilter('pending',this)">⏳ Pending</button>
       <button class="filter-btn" id="f-approved" onclick="setFilter('approved',this)">✅ Approved</button>
       <button class="filter-btn" id="f-rejected" onclick="setFilter('rejected',this)">❌ Rejected</button>
+      <button class="filter-btn" id="f-mumbai" onclick="setCity('Mumbai',this)">🏙️ Mumbai</button>
+      <button class="filter-btn" id="f-delhi" onclick="setCity('Delhi',this)">🕌 Delhi</button>
+      <button class="filter-btn" id="f-allcity" onclick="setCity('all',this)">🌍 All Cities</button>
       <input class="search-input" id="search-input" type="text" placeholder="🔍 Search area, name, description..." oninput="onSearch(this.value)" />
     </div>
 
@@ -280,6 +293,7 @@ input{font-family:inherit;color:inherit}
 
 <script>
 let currentFilter = 'all'
+let currentCity = 'all'
 let searchTimer = null
 let allReports = []
 
@@ -328,6 +342,7 @@ function showDashboard() {
 async function loadReports() {
   const search = document.getElementById('search-input').value.trim()
   let url = `/api/admin/incidents?status=${currentFilter}`
+  if (currentCity !== 'all') url += `&city=${currentCity}`
   if (search) url += `&search=${encodeURIComponent(search)}`
 
   try {
@@ -342,12 +357,13 @@ async function loadReports() {
 }
 
 function updateStats(reports) {
-  // Always fetch all for stats
   fetch('/api/admin/incidents?status=all').then(r=>r.json()).then(all => {
     document.getElementById('stat-total').textContent = all.length
     document.getElementById('stat-pending').textContent = all.filter(r=>r.status==='pending').length
     document.getElementById('stat-approved').textContent = all.filter(r=>r.status==='approved').length
     document.getElementById('stat-rejected').textContent = all.filter(r=>r.status==='rejected').length
+    document.getElementById('stat-mumbai').textContent = all.filter(r=>r.city==='Mumbai' && r.status==='approved').length
+    document.getElementById('stat-delhi').textContent = all.filter(r=>r.city==='Delhi' && r.status==='approved').length
   })
 }
 
@@ -374,6 +390,12 @@ function renderReports(reports) {
     const rejectBtn = r.status !== 'rejected'
       ? `<button class="btn-reject" onclick="rejectReport(${r.id})">❌ Reject</button>` : ''
     const deleteBtn = `<button class="btn-delete" onclick="deleteReport(${r.id})">🗑️ Delete</button>`
+    const upvoteControl = `
+      <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+        <button onclick="adjustVotes(${r.id},-1)" style="width:22px;height:22px;border-radius:5px;background:var(--red-dim);border:1px solid var(--red-border);color:var(--red);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</button>
+        <span id="votes-${r.id}" style="font-size:11px;font-weight:600;color:var(--t1);min-width:24px;text-align:center">${r.upvotes || 0}</span>
+        <button onclick="adjustVotes(${r.id},1)" style="width:22px;height:22px;border-radius:5px;background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">+</button>
+      </div>`
 
     return `
       <div class="report-row" id="row-${r.id}">
@@ -392,6 +414,7 @@ function renderReports(reports) {
         <div><span class="status-badge ${statusClass}">${r.status}</span></div>
         <div class="action-btns">
           ${approveBtn}${rejectBtn}${deleteBtn}
+          ${upvoteControl}
         </div>
       </div>
     `
@@ -409,6 +432,7 @@ async function rejectReport(id) {
   if (res.ok) { showToast('❌ Report rejected'); loadReports() }
 }
 
+
 async function deleteReport(id) {
   if (!confirm('Permanently delete this report?')) return
   const res = await fetch(`/api/admin/incidents/${id}`, { method: 'DELETE' })
@@ -418,16 +442,39 @@ async function deleteReport(id) {
     loadReports()
   }
 }
+async function adjustVotes(id, delta) {
+  const span = document.getElementById('votes-' + id)
+  const current = parseInt(span.textContent) || 0
+  const newVal = Math.max(0, current + delta)
+  const res = await fetch(`/api/admin/incidents/${id}/setvotes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ upvotes: newVal })
+  })
+  if (res.ok) {
+    span.textContent = newVal
+    showToast(delta > 0 ? '👍 Upvote added' : '👎 Upvote removed')
+  }
+}
 
 // ── FILTERS ───────────────────────────────────────────────
 function setFilter(status, btn) {
   currentFilter = status
-  document.querySelectorAll('.filter-btn').forEach(b => {
+  document.querySelectorAll('#f-all,#f-pending,#f-approved,#f-rejected').forEach(b => {
     b.classList.remove('active','active-green','active-orange')
   })
   if (status === 'approved') btn.classList.add('active-green')
   else if (status === 'pending') btn.classList.add('active-orange')
   else btn.classList.add('active')
+  loadReports()
+}
+
+function setCity(city, btn) {
+  currentCity = city
+  document.querySelectorAll('#f-mumbai,#f-delhi,#f-allcity').forEach(b => {
+    b.classList.remove('active')
+  })
+  btn.classList.add('active')
   loadReports()
 }
 

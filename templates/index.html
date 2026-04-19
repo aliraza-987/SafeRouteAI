@@ -1515,11 +1515,17 @@ list.innerHTML = [...incidents].map(i => {
 }
 async function upvoteIncident(e, id) {
   e.stopPropagation()
+  const key = 'upvoted_' + id
+  if (localStorage.getItem(key)) {
+    showToast('⚠️ You have already upvoted this report!')
+    return
+  }
   try {
     const res = await fetch('/api/incidents/' + id + '/upvote', { method: 'POST' })
     const data = await res.json()
     const btn = document.getElementById('upvote-' + id)
     if (btn) btn.innerHTML = '👍 ' + data.upvotes
+    localStorage.setItem(key, '1')
     showToast('👍 Thanks for confirming this report!')
   } catch {
     showToast('Could not upvote. Try again.')
