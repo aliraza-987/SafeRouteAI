@@ -335,7 +335,7 @@ def keep_alive():
     time.sleep(30)
     while True:
         try:
-            requests.get('https://saferouteai-zbf0.onrender.com')
+            requests.get('https://saferouteai-p2dw.onrender.com')
         except:
             pass
         time.sleep(840)
